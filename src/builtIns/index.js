@@ -30,6 +30,7 @@ export function shouldInstrument ({ constructor }) {
     typeof constructor === 'function' &&
     constructor.name in globalObj &&
     globalObj[constructor.name] === constructor
+  
   return !isBuiltIn || handlers.has(constructor)
 }
 

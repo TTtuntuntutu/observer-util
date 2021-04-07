@@ -1,27 +1,34 @@
 import { runAsReaction } from './reactionRunner'
 import { releaseReaction } from './store'
 
-const IS_REACTION = Symbol('is reaction')
+const IS_REACTION = Symbol('is reaction') // 标记：已经变成响应式observer
 
+// 开启
 export function observe (fn, options = {}) {
-  // wrap the passed function in a reaction, if it is not already one
+  // 对于observe fn，如果没有包装，会包装一下
   const reaction = fn[IS_REACTION]
     ? fn
     : function reaction () {
       return runAsReaction(reaction, fn, this, arguments)
     }
-  // save the scheduler and debugger on the reaction
+  
+  // 理解为勾子：save the scheduler and debugger on the reaction
   reaction.scheduler = options.scheduler
   reaction.debugger = options.debugger
-  // save the fact that this is a reaction
+
+  // 打上已包装的标记
   reaction[IS_REACTION] = true
-  // run the reaction once if it is not a lazy one
+
+  // 在创建的时候是否执行一下以变成响应式
+  // 如果为true，则要手动执行一下fn，因为包装的逻辑runAsReaction没有执行过
   if (!options.lazy) {
     reaction()
   }
+
   return reaction
 }
 
+// 关闭
 export function unobserve (reaction) {
   // do nothing, if the reaction is already unobserved
   if (!reaction.unobserved) {

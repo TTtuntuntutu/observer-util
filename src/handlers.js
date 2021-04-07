@@ -13,20 +13,27 @@ const wellKnownSymbols = new Set(
     .filter(value => typeof value === 'symbol')
 )
 
-// intercept get operations on observables to know which reaction uses their properties
-function get (target, key, receiver) {
+// ---------------- 要求在RunningReaction内------
+
+// 劫持Get方法，收集依赖/响应
+function get(target, key, receiver) {
+  // 先获得真实的属性值
   const result = Reflect.get(target, key, receiver)
-  // do not register (observable.prop -> reaction) pairs for well known symbols
-  // these symbols are frequently retrieved in low level JavaScript under the hood
+
+  // 校检一下，不要用周所周知的Symbols做key
   if (typeof key === 'symbol' && wellKnownSymbols.has(key)) {
     return result
   }
-  // register and save (observable.prop -> runningReaction)
+
+  // 待定一下：register and save (observable.prop -> runningReaction)
   registerRunningReactionForOperation({ target, key, receiver, type: 'get' })
+
   // if we are inside a reaction and observable.prop is an object wrap it in an observable too
   // this is needed to intercept property access on that object too (dynamic observable tree)
   const observableResult = rawToProxy.get(result)
+
   if (hasRunningReaction() && typeof result === 'object' && result !== null) {
+    // 如果result是对象且包装过直接返回
     if (observableResult) {
       return observableResult
     }
@@ -40,6 +47,7 @@ function get (target, key, receiver) {
       return observable(result)
     }
   }
+
   // otherwise return the observable wrapper if it is already created and cached or the raw object
   return observableResult || result
 }
@@ -56,24 +64,32 @@ function ownKeys (target) {
   return Reflect.ownKeys(target)
 }
 
-// intercept set operations on observables to know when to trigger reactions
+// ----------------
+
+// 劫持Set方法，在时间点取触发reactions
 function set (target, key, value, receiver) {
   // make sure to do not pollute the raw object with observables
+  // value值处理：如果value是对象，拿到的是原始数据，而不是包装后的
   if (typeof value === 'object' && value !== null) {
     value = proxyToRaw.get(value) || value
   }
-  // save if the object had a descriptor for this key
+
+
   const hadKey = hasOwnProperty.call(target, key)
+
   // save if the value changed because of this set operation
   const oldValue = target[key]
-  // execute the set operation before running any reaction
+  
+  // 在执行reaction之前做一下原本的set操作
   const result = Reflect.set(target, key, value, receiver)
+  
   // do not queue reactions if the target of the operation is not the raw receiver
   // (possible because of prototypal inheritance)
   if (target !== proxyToRaw.get(receiver)) {
     return result
   }
-  // queue a reaction if it's a new property or its value changed
+
+  // 准备响应，分新增和设置两种情况
   if (!hadKey) {
     queueReactionsForOperation({ target, key, value, receiver, type: 'add' })
   } else if (value !== oldValue) {
@@ -86,6 +102,7 @@ function set (target, key, value, receiver) {
       type: 'set'
     })
   }
+
   return result
 }
 

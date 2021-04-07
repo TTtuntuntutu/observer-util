@@ -9,7 +9,7 @@ const reactionStack = []
 let isDebugging = false
 
 export function runAsReaction (reaction, fn, context, args) {
-  // do not build reactive relations, if the reaction is unobserved
+  // 如果是unobserved的标记，就不做响应式处理了
   if (reaction.unobserved) {
     return Reflect.apply(fn, context, args)
   }
@@ -22,23 +22,26 @@ export function runAsReaction (reaction, fn, context, args) {
     releaseReaction(reaction)
 
     try {
-      // set the reaction as the currently running one
-      // this is required so that we can create (observable.prop -> reaction) pairs in the get trap
+      // 执行前：加入reactionStack
       reactionStack.push(reaction)
+      // 执行中
       return Reflect.apply(fn, context, args)
     } finally {
-      // always remove the currently running flag from the reaction when it stops execution
+      // 执行后：从stack剔除
       reactionStack.pop()
     }
   }
 }
 
-// register the currently running reaction to be queued again on obj.key mutations
+// 这个函数是和runAsReaction配合执行的，做好依赖收集
 export function registerRunningReactionForOperation (operation) {
-  // get the current reaction from the top of the stack
+  // 取最新的runningReaction
   const runningReaction = reactionStack[reactionStack.length - 1]
+
   if (runningReaction) {
+    // 执行一下debug勾子
     debugOperation(runningReaction, operation)
+    // 依赖收集
     registerReactionForOperation(runningReaction, operation)
   }
 }

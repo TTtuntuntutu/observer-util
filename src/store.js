@@ -1,3 +1,6 @@
+/**
+ * 依赖收集、响应收集
+ */
 const connectionStore = new WeakMap()
 const ITERATION_KEY = Symbol('iteration key')
 
@@ -11,12 +14,16 @@ export function registerReactionForOperation (reaction, { target, key, type }) {
     key = ITERATION_KEY
   }
 
+  // Observable obj对应的Map
   const reactionsForObj = connectionStore.get(target)
+
+  // obj[key] 对应的Set
   let reactionsForKey = reactionsForObj.get(key)
   if (!reactionsForKey) {
     reactionsForKey = new Set()
     reactionsForObj.set(key, reactionsForKey)
   }
+
   // save the fact that the key is used by the reaction during its current run
   if (!reactionsForKey.has(reaction)) {
     reactionsForKey.add(reaction)
